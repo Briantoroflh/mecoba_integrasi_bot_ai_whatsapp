@@ -5,6 +5,7 @@ import { generateReply } from './services/chatservice.js';
 
 async function connectToWhatsApp() {
     const authDir = process.env.AUTH_DIR ?? 'auth_info_baileys'
+    const phoneNumber = process.env.WA_PHONE_NUMBER?.replace(/\D/g, "");
 
     const { state, saveCreds } = await useMultiFileAuthState(authDir)
 
@@ -12,11 +13,33 @@ async function connectToWhatsApp() {
         auth: state
     })
 
+    let pairingCodeRequested = false;
+
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update
 
-        if (qr) {
-            qrcode.generate(qr, { small: true })
+        if (
+            !state.creds.registered &&
+            phoneNumber &&
+            !pairingCodeRequested
+        ) {
+            pairingCodeRequested = true;
+
+            try {
+                const code =
+                    await sock.requestPairingCode(phoneNumber);
+
+                console.log("WhatsApp pairing code:", code);
+                console.log(
+                    "Masukkan kode tersebut melalui WhatsApp > Perangkat tertaut > Tautkan perangkat dengan nomor telepon"
+                );
+            } catch (error) {
+                pairingCodeRequested = false;
+                console.error(
+                    "Gagal mendapatkan pairing code:",
+                    error
+                );
+            }
         }
 
         if (connection === 'close') {
