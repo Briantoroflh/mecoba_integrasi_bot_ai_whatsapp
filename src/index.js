@@ -14,44 +14,80 @@ async function connectToWhatsApp() {
     })
 
     let pairingCodeRequested = false;
+    let pairingTimer;
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update
+    sock.ev.on("connection.update", async (update) => {
+        const { connection, lastDisconnect } = update;
 
         if (
+            connection === "connecting" &&
             !state.creds.registered &&
             phoneNumber &&
             !pairingCodeRequested
         ) {
             pairingCodeRequested = true;
 
-            try {
-                const code = await sock.requestPairingCode(phoneNumber);
+            pairingTimer = setTimeout(async () => {
+                try {
+                    if (state.creds.registered) {
+                        return;
+                    }
 
-                console.log("WhatsApp pairing code:", code);
-                console.log(
-                    "Masukkan kode tersebut melalui WhatsApp > Perangkat tertaut > Tautkan perangkat dengan nomor telepon"
-                );
-            } catch (error) {
-                pairingCodeRequested = false;
-                console.error(
-                    "Gagal mendapatkan pairing code:",
-                    error
-                );
-            }
+                    const code = await sock.requestPairingCode(phoneNumber);
+
+                    console.log("WhatsApp pairing code:", code);
+                    console.log(
+                        "Segera masukkan kode melalui WhatsApp > " +
+                        "Perangkat tertaut > Tautkan perangkat dengan nomor telepon"
+                    );
+                } catch (error) {
+                    pairingCodeRequested = false;
+
+                    console.error(
+                        "Gagal meminta pairing code:",
+                        error?.output ?? error
+                    );
+                } finally {
+                    pairingTimer = undefined;
+                }
+            }, 5000);
         }
 
-        if (connection === 'close') {
-            const shouldReconnect = new  Boom(lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
-            console.log('connection closed due to', lastDisconnect?.error, ', reconnecting:', shouldReconnect)
+        if (connection === "open") {
+            console.log("WhatsApp connected");
+        }
+
+        if (connection === "close") {
+            if (pairingTimer) {
+                clearTimeout(pairingTimer);
+                pairingTimer = undefined;
+            }
+
+            const statusCode =
+                new Boom(lastDisconnect?.error)?.output?.statusCode;
+
+            const shouldReconnect =
+                statusCode !== DisconnectReason.loggedOut;
+
+            console.error("Connection closed:", {
+                statusCode,
+                shouldReconnect
+            });
+
+            if (statusCode === 401) {
+                console.error(
+                    "Sesi WhatsApp ditolak. Auth state perlu dihapus dan pairing ulang."
+                );
+                return;
+            }
 
             if (shouldReconnect) {
-                connectToWhatsApp()
+                setTimeout(() => {
+                    connectToWhatsApp();
+                }, 5000);
             }
-        } else if (connection === 'open') {
-            console.log('opened connection')
         }
-    })
+    });
 
     sock.ev.on('creds.update', saveCreds)
 
