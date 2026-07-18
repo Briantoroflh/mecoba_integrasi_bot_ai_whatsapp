@@ -1,5 +1,17 @@
 import { askOpenRouter } from "../providers/openrouter.js";
 
+const GREETING_TEMPLATE = `
+    *Halo! 😎*
+    Ada yang bisa zetbot bantu hari ini?
+
+    Saya siap membantu menjawab pertanyaan anda!
+
+    Contoh List Command:
+    • Apa itu layanan ini?
+    • Bagaimana cara menggunakannya?
+    • Tolong bantu saya membuat ringkasan.
+`
+
 export async function generateReply(userMessage) {
     return askOpenRouter([
         {
@@ -17,6 +29,9 @@ export async function generateReply(userMessage) {
                 - Jangan membungkus jawaban dengan JSON.
                 - Buat jawaban ringkas dan mudah dibaca di layar ponsel.
                 - Jika menjelaskan langkah-langkah, gunakan nomor 1, 2, 3.
+
+                Aturan jawaban saat merima text sapaan awal dari user seperti 'Halo' atau pun sapaan lainnya:
+                tolong tampilkan ini ${GREETING_TEMPLATE}
             `.trim()
         },
         {
