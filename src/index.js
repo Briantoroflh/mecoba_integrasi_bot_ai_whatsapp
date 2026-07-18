@@ -2,6 +2,7 @@ import makeWASocket, { areJidsSameUser, DisconnectReason, useMultiFileAuthState 
 import { Boom } from '@hapi/boom'
 import qrcode from 'qrcode-terminal'
 import { generateReply } from './services/chatservice.js';
+import { formatWhatsAppResponse } from './services/responseFormatter.js';
 
 async function connectToWhatsApp() {
     const authDir = process.env.AUTH_DIR ?? 'auth_info_baileys'
@@ -127,10 +128,16 @@ async function connectToWhatsApp() {
                 return;
             }
 
-            const reply = await generateReply(messageText)
+            // indikator mengetik
+            await sock.sendPresenceUpdate("composing", remoteJid);
+
+            const reply = await generateReply(userMsg)
+            const formattedReply = formatWhatsAppResponse(reply);
+
+            await sock.sendPresenceUpdate("paused", remoteJid);
 
             await sock.sendMessage(remoteJid, {
-                text: reply
+                text: formattedReply
             })
         }
     })
