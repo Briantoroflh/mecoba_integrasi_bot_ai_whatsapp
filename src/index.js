@@ -4,6 +4,33 @@ import qrcode from 'qrcode-terminal'
 import { generateReply } from './services/chatservice.js';
 import { formatWhatsAppResponse } from './services/responseFormatter.js';
 
+function unwrapMessage(message) {
+    if (!message) return null;
+
+    return (
+        message.ephemeralMessage?.message ??
+        message.viewOnceMessage?.message ??
+        message.viewOnceMessageV2?.message ??
+        message.documentWithCaptionMessage?.message ??
+        message
+    );
+}
+
+function extractMessageText(message) {
+    const content = unwrapMessage(message);
+
+    if (!content) return "";
+
+    return (
+        content.conversation ??
+        content.extendedTextMessage?.text ??
+        content.imageMessage?.caption ??
+        content.videoMessage?.caption ??
+        content.documentMessage?.caption ??
+        ""
+    ).trim();
+} 
+
 async function connectToWhatsApp() {
     const authDir = process.env.AUTH_DIR ?? 'auth_info_baileys'
     const phoneNumber = process.env.WA_PHONE_NUMBER?.replace(/\D/g, "");
@@ -103,7 +130,12 @@ async function connectToWhatsApp() {
 
             console.log(isGroup);
 
-            const contextInfo = msg.message.extendedTextMessage?.contextInfo;
+            const messageContent = unwrapMessage(msg.message);
+            const contextInfo = messageContent?.extendedTextMessage?.contextInfo;
+
+            //ambil teks pesan yang di reply
+            const quotedMessage = contextInfo?.quotedMessage;
+            const quotedText = extractMessageText(quotedMessage);
 
             const mentionedJids = contextInfo?.mentionedJid ?? [];
             const botJids = sock.user?.lid
@@ -116,11 +148,10 @@ async function connectToWhatsApp() {
                 return;
             }
 
-            const messageText = msg.message.conversation ?? msg.message.extendedTextMessage?.text
+            const messageText = extractMessageText(msg.message);
+            const userMsg = messageText.replace(/@\d+/g, "").trim();
 
-            const userMsg = messageText.replace(/@\d+/g, "").trim()
-
-            if (!userMsg) {
+            if (!userMsg && !quotedText) {
                 await sock.sendMessage(remoteJid, {
                     text: "Silakan tulis pertanyaan setelah tag saya."
                 });
@@ -128,10 +159,18 @@ async function connectToWhatsApp() {
                 return;
             }
 
+            const prompt = quotedText ? `
+                Pesan yang di-reply:
+                "${quotedText}"
+
+                Pertanyaan atau instruksi user:
+                "${userMsg || "Tolong jelaskan pesan yang di-reply tersebut."}"
+                `.trim() : userMsg;
+
             // indikator mengetik
             await sock.sendPresenceUpdate("composing", remoteJid);
 
-            const reply = await generateReply(userMsg)
+            const reply = await generateReply(prompt)
             const formattedReply = formatWhatsAppResponse(reply);
 
             await sock.sendPresenceUpdate("paused", remoteJid);
