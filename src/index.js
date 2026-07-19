@@ -173,8 +173,8 @@ async function connectToWhatsApp() {
 
             //ambil teks pesan yang di reply
             const quotedMessage = contextInfo?.quotedMessage;
-            const quotedContent = await extractMessageContent(quotedMessage);
-            const messageContentData = await extractMessageContent(msg.message);
+            // const quotedContent = await extractMessageContent(quotedMessage);
+            // const messageContentData = await extractMessageContent(msg.message);
 
             const mentionedJids = contextInfo?.mentionedJid ?? [];
             const botJids = sock.user?.lid
