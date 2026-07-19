@@ -227,7 +227,7 @@ async function connectToWhatsApp() {
 
                 userContent.push({
                     type: "image_url",
-                    image_url: {
+                    imageUrl: {
                         url: quotedContentData.imageDataUrl
                     }
                 });
@@ -249,7 +249,7 @@ async function connectToWhatsApp() {
 
                 userContent.push({
                     type: "image_url",
-                    image_url: {
+                    imageUrl: {
                         url: messageContentData.imageDataUrl
                     }
                 });
